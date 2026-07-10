@@ -1,0 +1,16 @@
+{
+  "name": "@social-media/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@social-media/types": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

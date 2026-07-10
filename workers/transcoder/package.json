@@ -1,0 +1,19 @@
+{
+  "name": "@social-media/transcoder",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/worker.ts",
+    "start": "tsx src/worker.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@social-media/database": "*",
+    "bullmq": "^5.53.2",
+    "ioredis": "^5.6.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

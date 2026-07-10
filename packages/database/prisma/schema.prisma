@@ -1,0 +1,352 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Platform ───────────────────────────────────────────────
+
+model App {
+  id           String   @id @default(uuid())
+  slug         String   @unique
+  name         String
+  bundleId     String?  @map("bundle_id")
+  webDomain    String?  @map("web_domain")
+  themeJson    Json?    @map("theme_json")
+  featuresJson Json?    @map("features_json")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  apiKeys           ApiKey[]
+  adminUsers        AdminUser[]
+  adminUserApps     AdminUserApp[]
+  series            Series[]
+  videos            Video[]
+  categories        Category[]
+  homeRows          HomeRow[]
+  banners           Banner[]
+  users             User[]
+  watchHistory      WatchHistory[]
+  favorites         Favorite[]
+  subscriptionPlans SubscriptionPlan[]
+  subscriptions     Subscription[]
+  transcodeJobs     TranscodeJob[]
+  auditLogs         AdminAuditLog[]
+
+  @@map("apps")
+}
+
+model ApiKey {
+  id         String    @id @default(uuid())
+  appId      String    @map("app_id")
+  keyHash    String    @map("key_hash")
+  keyPrefix  String    @map("key_prefix")
+  name       String?
+  scopes     String[]  @default(["read:content"])
+  rateLimit  Int       @default(1000) @map("rate_limit")
+  isActive   Boolean   @default(true) @map("is_active")
+  expiresAt  DateTime? @map("expires_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@index([appId])
+  @@map("api_keys")
+}
+
+model AdminUser {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String?
+  role         String   // super_admin | app_admin
+  appId        String?  @map("app_id")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  app         App?            @relation(fields: [appId], references: [id])
+  adminApps   AdminUserApp[]
+  auditLogs   AdminAuditLog[]
+
+  @@map("admin_users")
+}
+
+model AdminUserApp {
+  adminUserId String @map("admin_user_id")
+  appId       String @map("app_id")
+
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  app       App       @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@id([adminUserId, appId])
+  @@map("admin_user_apps")
+}
+
+model AdminAuditLog {
+  id           String   @id @default(uuid())
+  adminUserId  String   @map("admin_user_id")
+  action       String
+  appId        String?  @map("app_id")
+  targetId     String?  @map("target_id")
+  metadataJson Json?    @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id])
+  app       App?      @relation(fields: [appId], references: [id])
+
+  @@index([appId])
+  @@map("admin_audit_log")
+}
+
+// ─── Content ────────────────────────────────────────────────
+
+model Series {
+  id          String   @id @default(uuid())
+  appId       String   @map("app_id")
+  title       String
+  description String?
+  coverUrl    String?  @map("cover_url")
+  type        String   // long | short
+  isPremium   Boolean  @default(false) @map("is_premium")
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  app    App     @relation(fields: [appId], references: [id], onDelete: Cascade)
+  videos Video[]
+
+  @@index([appId])
+  @@map("series")
+}
+
+model Video {
+  id            String    @id @default(uuid())
+  appId         String    @map("app_id")
+  seriesId      String?   @map("series_id")
+  episodeNumber Int?      @map("episode_number")
+  title         String
+  description   String?
+  type          String    // long | short
+  durationSec   Int?      @map("duration_sec")
+  thumbnailUrl  String?   @map("thumbnail_url")
+  hlsPath       String?   @map("hls_path")
+  rawPath       String?   @map("raw_path")
+  status        String    @default("draft") // draft|processing|published|failed
+  isPremium     Boolean   @default(false) @map("is_premium")
+  viewCount     BigInt    @default(0) @map("view_count")
+  publishedAt   DateTime? @map("published_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  app            App              @relation(fields: [appId], references: [id], onDelete: Cascade)
+  series         Series?          @relation(fields: [seriesId], references: [id])
+  categories     VideoCategory[]
+  watchHistory   WatchHistory[]
+  favorites      Favorite[]
+  transcodeJobs  TranscodeJob[]
+
+  @@index([appId])
+  @@index([appId, type])
+  @@index([appId, status])
+  @@map("videos")
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  appId     String   @map("app_id")
+  name      String
+  slug      String
+  coverUrl  String?  @map("cover_url")
+  sortOrder Int      @default(0) @map("sort_order")
+
+  app    App             @relation(fields: [appId], references: [id], onDelete: Cascade)
+  videos VideoCategory[]
+
+  @@unique([appId, slug])
+  @@index([appId])
+  @@map("categories")
+}
+
+model VideoCategory {
+  videoId    String @map("video_id")
+  categoryId String @map("category_id")
+
+  video    Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([videoId, categoryId])
+  @@map("video_categories")
+}
+
+model HomeRow {
+  id         String  @id @default(uuid())
+  appId      String  @map("app_id")
+  title      String
+  type       String  // series | videos | category | continue
+  configJson Json?   @map("config_json")
+  sortOrder  Int     @default(0) @map("sort_order")
+  isActive   Boolean @default(true) @map("is_active")
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@index([appId])
+  @@map("home_rows")
+}
+
+model Banner {
+  id        String  @id @default(uuid())
+  appId     String  @map("app_id")
+  imageUrl  String  @map("image_url")
+  linkType  String? @map("link_type") // video | series | url
+  linkId    String? @map("link_id")
+  sortOrder Int     @default(0) @map("sort_order")
+  isActive  Boolean @default(true) @map("is_active")
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@index([appId])
+  @@map("banners")
+}
+
+// ─── Users (separate per app) ─────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  appId        String   @map("app_id")
+  email        String
+  passwordHash String   @map("password_hash")
+  name         String?
+  avatarUrl    String?  @map("avatar_url")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  app          App            @relation(fields: [appId], references: [id], onDelete: Cascade)
+  sessions     UserSession[]
+  watchHistory WatchHistory[]
+  favorites    Favorite[]
+  subscriptions Subscription[]
+
+  @@unique([email, appId])
+  @@index([appId])
+  @@map("users")
+}
+
+model UserSession {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  appId            String   @map("app_id")
+  refreshTokenHash String   @map("refresh_token_hash")
+  expiresAt        DateTime @map("expires_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_sessions")
+}
+
+model WatchHistory {
+  id          String   @id @default(uuid())
+  appId       String   @map("app_id")
+  userId      String   @map("user_id")
+  videoId     String   @map("video_id")
+  progressSec Int      @default(0) @map("progress_sec")
+  completed   Boolean  @default(false)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  app   App   @relation(fields: [appId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([appId, userId, videoId])
+  @@index([appId, userId])
+  @@map("watch_history")
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  appId     String   @map("app_id")
+  userId    String   @map("user_id")
+  videoId   String   @map("video_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  app   App   @relation(fields: [appId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([appId, userId, videoId])
+  @@index([appId, userId])
+  @@map("favorites")
+}
+
+// ─── Monetization ───────────────────────────────────────────
+
+model SubscriptionPlan {
+  id             String   @id @default(uuid())
+  appId          String   @map("app_id")
+  name           String
+  price          Decimal  @db.Decimal(10, 2)
+  currency       String   @default("USD")
+  storeProductId String?  @map("store_product_id")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  app           App            @relation(fields: [appId], references: [id], onDelete: Cascade)
+  subscriptions Subscription[]
+
+  @@index([appId])
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  id        String    @id @default(uuid())
+  appId     String    @map("app_id")
+  userId    String    @map("user_id")
+  planId    String    @map("plan_id")
+  status    String    @default("active")
+  expiresAt DateTime? @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  app  App              @relation(fields: [appId], references: [id], onDelete: Cascade)
+  user User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  @@index([appId, userId])
+  @@map("subscriptions")
+}
+
+model PaymentEvent {
+  id           String   @id @default(uuid())
+  appId        String   @map("app_id")
+  userId       String?  @map("user_id")
+  platform     String
+  eventType    String   @map("event_type")
+  payloadJson  Json     @map("payload_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([appId])
+  @@map("payment_events")
+}
+
+// ─── Infrastructure ─────────────────────────────────────────
+
+model TranscodeJob {
+  id           String    @id @default(uuid())
+  videoId      String    @map("video_id")
+  appId        String    @map("app_id")
+  status       String    @default("queued")
+  inputPath    String?   @map("input_path")
+  outputPath   String?   @map("output_path")
+  errorMessage String?   @map("error_message")
+  startedAt    DateTime? @map("started_at")
+  completedAt  DateTime? @map("completed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  app   App   @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("transcode_jobs")
+}

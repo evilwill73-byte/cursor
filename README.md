@@ -1,5 +1,5 @@
 # Free Self-Hosted AI Stack
 
-Docs for running **local AI models**, **multi-agents**, and **image generation** on your server with **no subscriptions**.
+All guidance is in **one file**:
 
-→ Start here: **[docs/README.md](./docs/README.md)**
+→ **[FREE-AI-STACK.md](./FREE-AI-STACK.md)**

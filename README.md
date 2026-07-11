@@ -2,16 +2,17 @@
 
 ## Start here
 
-**Which option is best for you (comparison + server upgrade):**  
+**Exact install for your server (8 vCPU / 16 GB / no GPU):**  
+→ **[INSTALL-8VCPU-16GB.md](./INSTALL-8VCPU-16GB.md)**
+
+**Which option is best (comparison):**  
 → **[BEST-FOR-YOU.md](./BEST-FOR-YOU.md)**
 
-**Full install process:**  
+**Full general setup guide:**  
 → **[FREE-AI-STACK.md](./FREE-AI-STACK.md)**
 
 ## Quick verdict
 
 Best free combo for multi-project agents (code + SEO + images):
 
-**OmniRoute + Aider/OpenHands (+ ComfyUI if you have a GPU)**
-
-Skip **AirLLM** for this use case. FreeLLMAPI is a simpler alternative to OmniRoute.
+**OmniRoute + Aider (+ Ollama backup). Skip ComfyUI/AirLLM without a GPU.**

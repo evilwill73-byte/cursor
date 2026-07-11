@@ -1,407 +1,628 @@
-# Free Self-Hosted AI Stack (No Subscriptions)
+# Free Self-Hosted AI Stack — Full Server Setup
 
-Guide to run **AI models**, **multiple agents**, and **image generation** on your own server — **no subscriptions**.
+Complete setup process for a **test server**. No subscriptions. Uses open-source tools only.
+
+**Assumes:** Ubuntu 22.04/24.04 (or similar Linux), you have `sudo`, and you can SSH in.
 
 ---
 
 ## Table of contents
 
-1. [Overview](#1-overview)
-2. [Local LLMs](#2-local-llms-free)
-3. [Multi-agents & project management](#3-multi-agents--project-management-free)
-4. [Image generation](#4-image-generation-free-local)
-5. [Server requirements](#5-server-requirements)
-6. [Starter setup](#6-starter-setup-practical-path)
-7. [Limits and tips](#7-limits-and-tips)
+1. [What you will install](#1-what-you-will-install)
+2. [Check your server](#2-check-your-server)
+3. [Prepare the system](#3-prepare-the-system)
+4. [Install Ollama (LLM)](#4-install-ollama-llm)
+5. [Pull free models](#5-pull-free-models)
+6. [Create project folders](#6-create-project-folders)
+7. [Install Aider (coding agent)](#7-install-aider-coding-agent)
+8. [Install OpenHands (optional stronger agent)](#8-install-openhands-optional-stronger-agent)
+9. [Install ComfyUI (images)](#9-install-comfyui-images)
+10. [Optional: CrewAI multi-agents](#10-optional-crewai-multi-agents)
+11. [Test everything](#11-test-everything)
+12. [Daily usage](#12-daily-usage)
+13. [Troubleshooting](#13-troubleshooting)
+14. [Model & hardware cheat sheet](#14-model--hardware-cheat-sheet)
 
 ---
 
-## 1. Overview
-
-### What you want
-
-- AI models on **your server**
-- **Multiple agents** that manage multiple projects/folders
-- Agents that can **build, create, edit** files
-- **Create images** from requirements
-- Everything **free** — no subscriptions
-
-### Recommended free stack
-
-| Layer | Tool | Role |
-|-------|------|------|
-| LLM runtime | **Ollama** (or llama.cpp / vLLM) | Run open models locally |
-| Coding / folder agents | **OpenHands** or **Aider** | Edit, create, build in project dirs |
-| Multi-agent orchestration | **CrewAI**, **AutoGen/AG2**, or **LangGraph** | Planner / coder / reviewer agents |
-| IDE assistant | **Continue** | Point your editor at Ollama |
-| Images | **ComfyUI** + SDXL / Flux open weights | Local image generation |
-
-### Architecture
-
-```
-Your server
-├── Ollama              → LLMs (chat, code, planning)
-├── OpenHands / Aider   → agents that edit/build in project folders
-├── ComfyUI             → image generation
-└── CrewAI / LangGraph  → optional multi-agent routing
-```
-
-Each project folder can be a workspace the agent is allowed to touch (build, edit, create files).
-
-### Free vs looks-free-but-isn’t
-
-| Use freely | Avoid if you want zero subscription |
-|------------|-------------------------------------|
-| Ollama + open weights | ChatGPT / Claude / Gemini APIs |
-| Hugging Face open models | Midjourney, paid Flux cloud |
-| OpenHands, Aider, ComfyUI | Cursor Pro, GitHub Copilot (paid tiers) |
-| Local Stable Diffusion | Most hosted “agent” SaaS |
-
-Open-source tools are free; quality depends on **your hardware**, not a monthly plan.
-
----
-
-## 2. Local LLMs (Free)
-
-Run language models on your machine. No API keys required for open weights.
-
-### Runtimes
-
-| Tool | Why use it | Link |
-|------|------------|------|
-| **Ollama** | Easiest local setup; simple CLI + HTTP API | https://ollama.com |
-| **llama.cpp** | Fast, low-level, good for servers | https://github.com/ggerganov/llama.cpp |
-| **vLLM** | High throughput if you have a strong GPU | https://github.com/vllm-project/vllm |
-
-**Start with Ollama** unless you already know you need vLLM-scale serving.
-
-### Free models to pull
-
-#### Coding
-
-| Model (examples) | Notes |
-|------------------|--------|
-| `qwen2.5-coder:14b` or `32b` | Strong open coding models |
-| `deepseek-coder-v2` | Good for code tasks |
-| `codestral` | Coding-focused (if available locally) |
-
-#### General / agents
-
-| Model (examples) | Notes |
-|------------------|--------|
-| `llama3.1:8b` / `70b` | Solid general chat + tools |
-| `qwen2.5:14b` / `32b` | Strong all-rounder |
-| `mistral-nemo` | Efficient general model |
-| `gemma2` | Good smaller/mid options |
-
-#### Small / weak hardware
-
-| Model (examples) | Notes |
-|------------------|--------|
-| `phi3` | Small, usable on limited RAM |
-| `qwen2.5:7b` | Decent quality for 7B class |
-| `llama3.2:3b` | Very light; limited quality |
-
-### Hardware sizing (rule of thumb)
-
-| Model size | Typical VRAM need |
-|------------|-------------------|
-| 7B–14B | ~8–16 GB VRAM |
-| 32B+ | ~24 GB+ VRAM (or CPU — slow) |
-
-CPU-only works for experiments; agents and coding feel much better with a GPU.
-
-### Ollama quick commands
-
-```bash
-# Install (Linux) — see https://ollama.com for current install
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Pull a coding model
-ollama pull qwen2.5-coder:14b
-
-# Run interactively
-ollama run qwen2.5-coder:14b
-
-# API is usually at:
-# http://localhost:11434
-```
-
-Point agents (OpenHands, Aider, Continue, CrewAI) at the Ollama base URL.
-
----
-
-## 3. Multi-agents & project management (Free)
-
-Tools that can manage **multiple projects/folders**: create files, edit code, run builds, and coordinate specialist agents — all without paid APIs when pointed at Ollama.
-
-### Best tools for your use case
-
-| Tool | Best for | Link |
-|------|----------|------|
-| **OpenHands** | Agents that edit files, run terminals, build projects | https://github.com/All-Hands-AI/OpenHands |
-| **Aider** | Git-aware coding agent (pair programmer in the terminal) | https://aider.chat |
-| **CrewAI** | Multiple specialized agents (planner, coder, reviewer) | https://www.crewai.com |
-| **AutoGen / AG2** | Multi-agent conversations and task handoff | https://github.com/microsoft/autogen |
-| **Continue** | IDE coding assistant pointed at Ollama | https://continue.dev |
-| **LangGraph** | Custom multi-agent workflows you fully control | https://github.com/langchain-ai/langgraph |
-
-### What to start with
-
-For “manage multiple projects/folders, build, create, edit”:
-
-1. **OpenHands + Ollama** — strongest “agent that uses the computer” feel  
-2. **Aider + Ollama** — excellent if you live in git + terminal  
-
-Add **CrewAI / LangGraph** later when you want separate roles (planner / coder / image / build).
-
-### How folder / project management works
-
-```
-/projects
-  /app-a     ← agent workspace A
-  /app-b     ← agent workspace B
-  /site-c    ← agent workspace C
-```
-
-- Give each agent (or each OpenHands/Aider session) a **root folder**.
-- Agents can create/edit files, run `npm`/`pip`/`make`, and commit if you allow git.
-- Keep secrets and production credentials **outside** agent-writable paths.
-
-### Suggested agent roles (optional)
-
-| Agent | Job |
-|-------|-----|
-| Planner | Break requirements into tasks |
-| Coder | Edit/create source files |
-| Builder | Run installs, builds, tests |
-| Image | Call ComfyUI for assets |
-| Reviewer | Check diffs / suggest fixes |
-
-Implement roles with CrewAI, AutoGen, or LangGraph; keep the LLM backend as Ollama.
-
-### IDE option
-
-Use **Continue** in VS Code / JetBrains and set the model provider to **Ollama**. Good for day-to-day editing; pair with OpenHands/Aider for heavier autonomous work.
-
----
-
-## 4. Image generation (Free, local)
-
-Generate images from requirements on your server — no Midjourney or paid cloud APIs.
-
-### Recommended stack
-
-| Tool | Role | Link |
-|------|------|------|
-| **ComfyUI** | Best local image workflow + API | https://github.com/comfyanonymous/ComfyUI |
-| **Stable Diffusion XL / SD3** | Open image models | Hugging Face |
-| **Flux (open weights)** | High-quality open image models where licenses allow | Hugging Face |
-
-Download checkpoints from **Hugging Face**. Run them locally with ComfyUI.
-
-### Why ComfyUI
-
-- Node-based workflows (txt2img, img2img, upscale, etc.)
-- Can expose an **API** so your agents call it when a task needs an image
-- Fully offline after models are downloaded
-
-### Typical flow with agents
-
-```
-Requirement → Planner agent → Image agent → ComfyUI API → save PNG into project folder
-```
-
-Example: agent creates `assets/hero.png` inside the project directory after ComfyUI finishes.
-
-### Hardware notes
-
-| Setup | Expectation |
-|-------|-------------|
-| NVIDIA GPU 8GB+ | Usable SDXL / many Flux variants |
-| 12–24GB VRAM | Comfortable higher-res / heavier models |
-| CPU only | Possible but very slow |
-
-### Alternatives (also free/local)
-
-- Automatic1111 / Forge WebUI — simpler UI; ComfyUI is usually better for automation
-- InvokeAI — another local UI option
-
----
-
-## 5. Server requirements
-
-### Hardware
-
-| Resource | Minimum (experiments) | Comfortable |
-|----------|----------------------|-------------|
-| **GPU** | Optional (CPU works, slow) | NVIDIA with CUDA, 8–24GB+ VRAM |
-| **System RAM** | 16 GB | 32 GB+ |
-| **Disk** | ~50 GB | 100–200 GB+ (models + image checkpoints) |
-| **OS** | Linux preferred | Ubuntu Server / similar |
-
-### Why GPU matters
-
-- Coding agents feel usable with a mid-size model on GPU.
-- Image generation is painful on CPU.
-- Larger models (32B+) need more VRAM or quantized weights.
-
-### Model size vs VRAM (approx.)
-
-| Model class | VRAM (quantized, rough) |
-|-------------|-------------------------|
-| 3B–7B | 4–8 GB |
-| 14B | 8–16 GB |
-| 32B+ | 24 GB+ |
-
-Quantized GGUF/Q4–Q5 models (via Ollama) reduce VRAM at some quality cost.
-
-### Network
-
-- Outbound needed once to **download** models and tools.
-- After that, you can run fully offline if desired.
-- Bind Ollama/ComfyUI to localhost or a private network; do not expose publicly without auth.
-
-### Security basics
-
-- Do not give agents write access to your whole disk.
-- Scope each agent to specific project folders.
-- Keep `.env`, keys, and production data out of agent workspaces.
-- Prefer reverse proxy + auth if you access UIs remotely.
-
----
-
-## 6. Starter setup (practical path)
-
-Follow this order. Everything below can stay **subscription-free** when using open local models.
-
-### Step 1 — Install Ollama + a coding model
-
-```bash
-# Install Ollama (Linux) — check https://ollama.com for the latest method
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Pull a model that fits your VRAM
-ollama pull qwen2.5-coder:14b
-# If VRAM is tight:
-# ollama pull qwen2.5-coder:7b
-
-# Verify
-ollama run qwen2.5-coder:14b "Write a hello world in Python"
-```
-
-API base URL (default): `http://localhost:11434`
-
-### Step 2 — Install a coding / folder agent
-
-#### Option A: Aider (terminal + git)
-
-```bash
-# Example install — see https://aider.chat for current docs
-pip install aider-chat
-
-# Point at Ollama (example; flags may vary by version)
-export OLLAMA_API_BASE=http://127.0.0.1:11434
-aider --model ollama/qwen2.5-coder:14b
-```
-
-Run Aider inside each project folder you want managed.
-
-#### Option B: OpenHands (stronger autonomous agent)
-
-- Follow: https://github.com/All-Hands-AI/OpenHands
-- Configure the LLM provider to **Ollama**
-- Open a workspace per project folder
-
-### Step 3 — Install ComfyUI for images
-
-```bash
-# Clone and follow ComfyUI README for your GPU
-git clone https://github.com/comfyanonymous/ComfyUI.git
-cd ComfyUI
-# Install deps per their docs, download SDXL/Flux checkpoints into models/
-```
-
-When agents need images, call ComfyUI’s API and save outputs into the project `assets/` folder.
-
-### Step 4 — Optional multi-agent layer
-
-Add later when one agent is not enough:
-
-| Tool | Use |
-|------|-----|
-| CrewAI | Role-based crew (planner, coder, reviewer) |
-| AutoGen / AG2 | Multi-agent chat handoff |
-| LangGraph | Custom graphs / workflows |
-
-Keep the LLM endpoint as Ollama so costs stay at $0.
-
-### Step 5 — Optional IDE assistant
-
-Install **Continue** and set provider to Ollama with your coding model.
-
-### Suggested project layout
+## 1. What you will install
+
+| Step | Tool | Purpose |
+|------|------|---------|
+| 1 | System packages | Python, git, build tools |
+| 2 | **Ollama** | Run free local AI models |
+| 3 | Coding model | e.g. `qwen2.5-coder` |
+| 4 | **Aider** | Agent that edits/creates code in folders |
+| 5 | **OpenHands** (optional) | Stronger autonomous agent |
+| 6 | **ComfyUI** (optional) | Free local image generation |
+| 7 | **CrewAI** (optional) | Multiple specialist agents |
+
+Final layout:
 
 ```
 /opt/ai
-  ollama/          # or system install
-  comfyui/
-  openhands/       # or docker compose
+  comfyui/           # image generation
+  openhands/         # optional agent
+  venv/              # Python tools (aider, crewai)
 /projects
-  project-a/
-  project-b/
-  project-c/
+  demo-a/            # test project 1
+  demo-b/            # test project 2
 ```
-
-Agents only get access under `/projects/<name>`.
-
-### Checklist
-
-- [ ] Ollama installed and model pulled
-- [ ] Aider or OpenHands talks to Ollama
-- [ ] Can create/edit files in a test project
-- [ ] Can run a build command via the agent
-- [ ] ComfyUI generates one test image
-- [ ] Agent workspaces scoped to project folders only
 
 ---
 
-## 7. Limits and tips
+## 2. Check your server
 
-### Honest limits of “100% free”
+SSH into your server, then run:
 
-- No cloud API means **quality and speed depend on your GPU**.
-- Best open coding/image models still lag the top paid APIs, but for personal multi-project automation this stack is solid and costs **$0** after hardware.
-- You maintain updates, models, and disk yourself.
-- Large context windows and very complex multi-file refactors are harder on small local models.
+```bash
+# OS
+cat /etc/os-release | head -5
 
-### Tips that improve results
+# CPU / RAM
+nproc
+free -h
 
-1. **Pick the right model size** for your VRAM — a fast 14B often beats a thrashing 70B.
-2. **One project folder per agent session** — clearer context, fewer mistakes.
-3. **Give clear requirements** — agents do better with concrete file paths and acceptance criteria.
-4. **Use git** — Aider/OpenHands work best when you can review diffs and revert.
-5. **Quantize when needed** — Q4/Q5 models save VRAM; quality drop is often acceptable.
-6. **Separate image jobs** — don’t force the coding model to “draw”; call ComfyUI.
-7. **Keep secrets out** — never put API keys or production DB creds in agent-writable trees.
-8. **Start simple** — Ollama + Aider/OpenHands first; add CrewAI/LangGraph only when needed.
+# Disk
+df -h /
 
-### Free vs paid reminder
+# GPU (NVIDIA)?
+nvidia-smi || echo "No NVIDIA GPU detected — CPU mode (slower) is OK for testing"
+```
 
-| Free (self-hosted) | Paid (avoid for this goal) |
-|--------------------|----------------------------|
-| Ollama + open weights | OpenAI / Anthropic / Google APIs |
-| OpenHands, Aider, Continue | Cursor Pro, Copilot paid |
-| ComfyUI + SD/Flux open weights | Midjourney, most image SaaS |
-| CrewAI / AutoGen / LangGraph (self-run) | Hosted agent platforms with seats |
+### What you need for testing
 
-### If you share more details later
+| Resource | Minimum for test | Better |
+|----------|------------------|--------|
+| RAM | 8–16 GB | 32 GB+ |
+| Disk free | 30 GB | 100 GB+ |
+| GPU | Optional | NVIDIA 8GB+ VRAM |
+| OS | Ubuntu 22.04+ | Ubuntu 24.04 |
 
-Useful to refine exact model picks:
+**No GPU?** Still fine for testing small models (`7b` / `3b`). Expect slower replies.
 
-- GPU model and VRAM
-- System RAM
-- Prefer CLI vs web UI
-- Main work: code, docs, images, or all three
+---
 
-Then you can lock exact `ollama pull` model names and ComfyUI checkpoints for your machine.
+## 3. Prepare the system
+
+```bash
+sudo apt update
+sudo apt upgrade -y
+
+sudo apt install -y \
+  curl wget git ca-certificates \
+  build-essential \
+  python3 python3-pip python3-venv python3-dev \
+  unzip tmux htop
+
+# Optional: Node.js (useful if agents build JS projects)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Confirm
+python3 --version
+git --version
+node --version || true
+```
+
+Create directories:
+
+```bash
+sudo mkdir -p /opt/ai /projects
+sudo chown -R "$USER:$USER" /opt/ai /projects
+```
+
+---
+
+## 4. Install Ollama (LLM)
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Check service
+ollama --version
+systemctl is-active ollama || sudo systemctl enable --now ollama
+
+# API should answer
+curl -s http://127.0.0.1:11434/api/tags
+```
+
+### Allow LAN access (optional — only on private/test networks)
+
+By default Ollama listens on localhost. To reach it from another machine on your LAN:
+
+```bash
+sudo mkdir -p /etc/systemd/system/ollama.service.d
+sudo tee /etc/systemd/system/ollama.service.d/override.conf >/dev/null <<'EOF'
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0:11434"
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl restart ollama
+```
+
+**Security:** do not expose port `11434` to the public internet without a firewall/auth.
+
+---
+
+## 5. Pull free models
+
+Pick **one** coding model based on RAM/VRAM:
+
+```bash
+# Weak server / CPU / ~8GB RAM  → small
+ollama pull qwen2.5-coder:7b
+
+# Normal test server / ~16GB RAM or 8–12GB VRAM → recommended
+ollama pull qwen2.5-coder:14b
+
+# Strong GPU (24GB+ VRAM)
+# ollama pull qwen2.5-coder:32b
+
+# Optional general chat model
+ollama pull llama3.1:8b
+```
+
+List and quick test:
+
+```bash
+ollama list
+
+# Interactive test
+ollama run qwen2.5-coder:7b "Write a Python hello world function"
+
+# Or use the model you actually pulled, e.g.:
+# ollama run qwen2.5-coder:14b "Write a Python hello world function"
+```
+
+Set a default model name for later scripts (edit to match what you pulled):
+
+```bash
+echo 'export AI_MODEL=qwen2.5-coder:7b' >> ~/.bashrc
+# If you pulled 14b instead:
+# echo 'export AI_MODEL=qwen2.5-coder:14b' >> ~/.bashrc
+source ~/.bashrc
+echo "Using model: $AI_MODEL"
+```
+
+---
+
+## 6. Create project folders
+
+```bash
+mkdir -p /projects/demo-a /projects/demo-b
+cd /projects/demo-a
+git init
+echo "# Demo A" > README.md
+git add README.md
+git config user.email "test@localhost"
+git config user.name "Test User"
+git commit -m "init"
+
+cd /projects/demo-b
+git init
+echo "# Demo B" > README.md
+git add README.md
+git config user.email "test@localhost"
+git config user.name "Test User"
+git commit -m "init"
+```
+
+Agents will work **inside** these folders.
+
+---
+
+## 7. Install Aider (coding agent)
+
+Aider is the fastest way to get a free coding agent talking to Ollama.
+
+```bash
+python3 -m venv /opt/ai/venv
+source /opt/ai/venv/bin/activate
+pip install -U pip
+pip install aider-chat
+
+aider --version
+```
+
+### Run Aider on a project
+
+```bash
+source /opt/ai/venv/bin/activate
+export OLLAMA_API_BASE=http://127.0.0.1:11434
+
+cd /projects/demo-a
+aider --model "ollama_chat/${AI_MODEL:-qwen2.5-coder:7b}"
+```
+
+Inside Aider, try:
+
+```
+Create a file hello.py that prints Hello from Demo A
+```
+
+Then exit (`/exit` or Ctrl+C), and check:
+
+```bash
+ls -la /projects/demo-a
+cat /projects/demo-a/hello.py
+```
+
+### Handy alias
+
+```bash
+cat >> ~/.bashrc <<'EOF'
+alias ai-env='source /opt/ai/venv/bin/activate'
+alias ai-aider='source /opt/ai/venv/bin/activate; export OLLAMA_API_BASE=http://127.0.0.1:11434; aider --model ollama_chat/${AI_MODEL:-qwen2.5-coder:7b}'
+EOF
+source ~/.bashrc
+```
+
+Usage:
+
+```bash
+cd /projects/demo-a
+ai-aider
+```
+
+---
+
+## 8. Install OpenHands (optional stronger agent)
+
+Use this if you want an agent that can use a browser-like workspace, terminal, and file editor more autonomously.
+
+### Option A — Docker (recommended if Docker is available)
+
+```bash
+# Install Docker if missing
+if ! command -v docker >/dev/null; then
+  curl -fsSL https://get.docker.com | sh
+  sudo usermod -aG docker "$USER"
+  echo "Log out and back in (or run: newgrp docker), then re-run the OpenHands steps."
+fi
+
+docker --version
+```
+
+Follow the current OpenHands docs (commands change over time):
+
+- Repo: https://github.com/All-Hands-AI/OpenHands  
+- Configure LLM provider = **Ollama**  
+- Base URL = `http://host.docker.internal:11434` (Docker Desktop)  
+  or `http://172.17.0.1:11434` / your server LAN IP (Linux Docker)  
+- Model = the same name you pulled, e.g. `qwen2.5-coder:7b`  
+- Mount/open workspace = `/projects/demo-a`
+
+Example pattern (check docs for the latest `docker run` / compose):
+
+```bash
+# Example only — verify against OpenHands README before running
+export OH_DIR=/opt/ai/openhands
+mkdir -p "$OH_DIR"
+cd "$OH_DIR"
+# Place their docker-compose.yml / follow official quickstart
+```
+
+### Option B — skip for now
+
+If Docker is painful on your test box, **Aider + Ollama is enough** to validate the whole idea.
+
+---
+
+## 9. Install ComfyUI (images)
+
+Skip if you only need code agents for this test.
+
+```bash
+cd /opt/ai
+git clone https://github.com/comfyanonymous/ComfyUI.git
+cd /opt/ai/ComfyUI
+
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -U pip
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+# If you have NVIDIA CUDA, use the CUDA wheel from https://pytorch.org instead of cpu
+
+pip install -r requirements.txt
+```
+
+### Download one free image model (example: SDXL turbo / small checkpoint)
+
+Pick a small checkpoint for testing so download is not huge. Example using a common SD 1.5-class model (adjust URL to a model you trust from Hugging Face):
+
+```bash
+mkdir -p /opt/ai/ComfyUI/models/checkpoints
+cd /opt/ai/ComfyUI/models/checkpoints
+
+# Example: download a public SD checkpoint from Hugging Face
+# Replace with the exact model file you choose on huggingface.co
+# wget -O model.safetensors "https://huggingface.co/.../model.safetensors"
+
+echo "Put at least one .safetensors/.ckpt file in:"
+pwd
+```
+
+### Start ComfyUI
+
+```bash
+cd /opt/ai/ComfyUI
+source .venv/bin/activate
+
+# Local only
+python main.py --listen 127.0.0.1 --port 8188
+
+# Or LAN test access (private network only)
+# python main.py --listen 0.0.0.0 --port 8188
+```
+
+Open in browser: `http://SERVER_IP:8188` (if listening on LAN) or SSH tunnel:
+
+```bash
+# From your laptop
+ssh -L 8188:127.0.0.1:8188 user@YOUR_SERVER_IP
+# Then open http://127.0.0.1:8188
+```
+
+Save generated images into a project folder, e.g. `/projects/demo-a/assets/`.
+
+### Run ComfyUI in background with tmux
+
+```bash
+tmux new -s comfy
+cd /opt/ai/ComfyUI && source .venv/bin/activate && python main.py --listen 127.0.0.1 --port 8188
+# Detach: Ctrl+B then D
+# Reattach later: tmux attach -t comfy
+```
+
+---
+
+## 10. Optional: CrewAI multi-agents
+
+For multiple specialist agents (planner / coder) on top of Ollama:
+
+```bash
+source /opt/ai/venv/bin/activate
+pip install crewai crewai-tools langchain-ollama
+```
+
+Create a tiny test script:
+
+```bash
+mkdir -p /opt/ai/crew-demo
+cat > /opt/ai/crew-demo/run_crew.py <<'PY'
+import os
+from crewai import Agent, Task, Crew, LLM
+
+model = os.environ.get("AI_MODEL", "qwen2.5-coder:7b")
+llm = LLM(model=f"ollama/{model}", base_url="http://127.0.0.1:11434")
+
+planner = Agent(
+    role="Planner",
+    goal="Break the user request into clear coding steps",
+    backstory="You plan software tasks clearly and briefly.",
+    llm=llm,
+    verbose=True,
+)
+
+coder = Agent(
+    role="Coder",
+    goal="Write simple Python code for the plan",
+    backstory="You write short, working Python scripts.",
+    llm=llm,
+    verbose=True,
+)
+
+task1 = Task(
+    description="Plan a tiny Python script that prints the numbers 1 to 5.",
+    expected_output="A short step list.",
+    agent=planner,
+)
+
+task2 = Task(
+    description="Write the Python script based on the plan. Output only the code.",
+    expected_output="A complete Python script.",
+    agent=coder,
+)
+
+crew = Crew(agents=[planner, coder], tasks=[task1, task2])
+result = crew.kickoff()
+print("\n=== RESULT ===\n", result)
+PY
+```
+
+Run:
+
+```bash
+source /opt/ai/venv/bin/activate
+export AI_MODEL="${AI_MODEL:-qwen2.5-coder:7b}"
+cd /opt/ai/crew-demo
+python run_crew.py
+```
+
+> Note: CrewAI versions change often. If import errors appear, check their latest docs and adjust package versions.
+
+---
+
+## 11. Test everything
+
+Run these checks on the server:
+
+### A) Ollama works
+
+```bash
+curl -s http://127.0.0.1:11434/api/tags | head
+ollama run "${AI_MODEL:-qwen2.5-coder:7b}" "Reply with OK"
+```
+
+### B) Aider can create/edit files
+
+```bash
+source /opt/ai/venv/bin/activate
+export OLLAMA_API_BASE=http://127.0.0.1:11434
+cd /projects/demo-a
+aider --model "ollama_chat/${AI_MODEL:-qwen2.5-coder:7b}"
+# Ask: Create app.py with a function add(a,b) and a main that prints add(2,3)
+```
+
+Then:
+
+```bash
+python3 /projects/demo-a/app.py
+```
+
+### C) Second project folder
+
+```bash
+cd /projects/demo-b
+ai-aider
+# Ask: Create main.py that prints Demo B ready
+```
+
+### D) Image (if ComfyUI installed)
+
+- Open UI via SSH tunnel
+- Generate one image
+- Copy it to `/projects/demo-a/assets/`
+
+### Pass criteria for your test server
+
+- [ ] `ollama list` shows at least one model  
+- [ ] Model answers a prompt  
+- [ ] Aider creates a file in `/projects/demo-a`  
+- [ ] Same works in `/projects/demo-b`  
+- [ ] (Optional) ComfyUI loads and generates one image  
+- [ ] (Optional) CrewAI script prints a result  
+
+---
+
+## 12. Daily usage
+
+### Start / check Ollama
+
+```bash
+sudo systemctl status ollama
+# if stopped:
+sudo systemctl start ollama
+```
+
+### Work on a project with Aider
+
+```bash
+cd /projects/YOUR_PROJECT
+ai-aider
+```
+
+Example prompts:
+
+- `Create a FastAPI app with /health endpoint`
+- `Add a Dockerfile for this project`
+- `Fix the bug in main.py that causes KeyError`
+- `Create assets/ folder and a script that documents image requirements`
+
+### Manage multiple projects
+
+```bash
+/projects
+  shop-api/     → cd here + ai-aider
+  landing/      → cd here + ai-aider
+  admin-panel/  → cd here + ai-aider
+```
+
+One agent session = one project folder. Open another terminal/tmux window for another project.
+
+### Keep long jobs alive with tmux
+
+```bash
+tmux new -s ai
+# run aider / comfy / crew here
+# Ctrl+B then D to detach
+tmux ls
+tmux attach -t ai
+```
+
+---
+
+## 13. Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| `ollama: command not found` | Re-run install script; open a new shell |
+| Model download fails | Check disk space (`df -h`) and network |
+| Aider cannot reach model | `curl http://127.0.0.1:11434/api/tags` and set `OLLAMA_API_BASE` |
+| Out of memory / killed | Use smaller model (`7b` or `3b`); close other apps |
+| Very slow answers | Normal on CPU; use smaller model or add GPU |
+| NVIDIA not used | Install NVIDIA driver + CUDA toolkit; reinstall GPU PyTorch for ComfyUI |
+| Permission denied in `/projects` | `sudo chown -R $USER:$USER /projects /opt/ai` |
+| Port already in use | Change ComfyUI `--port` or stop the other process |
+| OpenHands cannot see Ollama | Use host gateway IP, not `127.0.0.1`, from inside Docker |
+
+### Useful logs
+
+```bash
+sudo journalctl -u ollama -f
+# ComfyUI: watch the terminal/tmux where it runs
+```
+
+---
+
+## 14. Model & hardware cheat sheet
+
+| Your hardware | Pull this first |
+|---------------|-----------------|
+| CPU only, 8–16GB RAM | `qwen2.5-coder:7b` or `llama3.2:3b` |
+| 8–12GB VRAM | `qwen2.5-coder:14b` |
+| 24GB+ VRAM | `qwen2.5-coder:32b` |
+| Want general chat too | also `llama3.1:8b` |
+
+### Free stack reminder
+
+| Use (free) | Avoid (paid) |
+|------------|--------------|
+| Ollama + open models | OpenAI / Claude / Gemini APIs |
+| Aider / OpenHands / Continue | Cursor Pro / Copilot paid |
+| ComfyUI + open image weights | Midjourney / paid image APIs |
+| CrewAI self-hosted | Hosted agent SaaS |
+
+---
+
+## Quick copy-paste: minimal test path (15–30 min)
+
+```bash
+# 1) System
+sudo apt update && sudo apt install -y curl git python3 python3-pip python3-venv build-essential
+sudo mkdir -p /opt/ai /projects && sudo chown -R "$USER:$USER" /opt/ai /projects
+
+# 2) Ollama + small model
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull qwen2.5-coder:7b
+ollama run qwen2.5-coder:7b "Say OK"
+
+# 3) Project
+mkdir -p /projects/demo-a && cd /projects/demo-a && git init
+git config user.email "test@localhost" && git config user.name "Test"
+echo "# demo" > README.md && git add README.md && git commit -m init
+
+# 4) Aider
+python3 -m venv /opt/ai/venv
+source /opt/ai/venv/bin/activate
+pip install -U pip aider-chat
+export OLLAMA_API_BASE=http://127.0.0.1:11434
+aider --model ollama_chat/qwen2.5-coder:7b
+```
+
+Then ask Aider: `Create hello.py that prints Hello from my test server`
+
+---
+
+## Done
+
+After the minimal path works, add:
+
+1. Second project folder (`demo-b`)  
+2. ComfyUI for images  
+3. CrewAI if you want multiple agent roles  
+4. OpenHands if you want a stronger autonomous UI agent  
+
+All of the above stays **free** as long as you keep using **Ollama + open weights** on your server.
